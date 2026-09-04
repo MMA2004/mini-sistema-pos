@@ -10,7 +10,7 @@ export async function middleware(request) {
 
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
         {
             cookies: {
                 getAll() {
@@ -29,7 +29,31 @@ export async function middleware(request) {
         }
     )
 
-    await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { pathname } = request.nextUrl
+
+    // Rutas públicas que no requieren autenticación
+    const isPublicRoute = 
+        pathname === '/login' || 
+        pathname === '/registro' || 
+        pathname === '/recuperar-password' || 
+        pathname.startsWith('/actualizar-password') ||
+        pathname.startsWith('/auth')
+
+    // Si no está autenticado e intenta acceder a ruta protegida
+    if (!user && !isPublicRoute && pathname !== '/') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
+    }
+
+    // Si ya está autenticado e intenta ir a /login o /registro
+    if (user && (pathname === '/login' || pathname === '/registro')) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/'
+        return NextResponse.redirect(url)
+    }
 
     return response
 }
