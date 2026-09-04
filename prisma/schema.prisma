@@ -3,14 +3,76 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
-// Tabla simple para probar la conexión
-model TestConnection {
-  id        String   @id @default(uuid())
-  message   String
-  createdAt DateTime @default(now())
+model Usuario {
+  cedula     String  @id @db.Char(10)
+  nombre     String  @db.VarChar(20)
+  apellido   String  @db.VarChar(20)
+  correo     String? @unique @db.VarChar(30)
+  contrasena String  @db.VarChar(30)
+  rol        Int     @db.SmallInt
+  estado     Int     @db.SmallInt
+
+  ventas       Venta[]
+  cambiosStock HistoricoCambiosStock[]
+}
+
+model Categoria {
+  id_categoria Int    @id @default(autoincrement())
+  nombre       String @unique @db.VarChar(30)
+  descripcion  String @db.VarChar(100)
+
+  productos Producto[]
+}
+
+model Producto {
+  codigo              String  @id @db.Char(13)
+  nombre              String  @db.VarChar(100)
+  id_categoria        Int
+  precio_unitario     Decimal @db.Decimal(15, 2)
+  unidades_totales    Int
+  unidades_reservadas Int
+
+  categoria    Categoria                 @relation(fields: [id_categoria], references: [id_categoria])
+  cambiosStock HistoricoCambiosStock[]
+  ventas       VentaProducto[]
+}
+
+model HistoricoCambiosStock {
+  id_cambio      Int      @id @default(autoincrement())
+  fecha          DateTime @default(now())
+  ced_usuario    String   @db.Char(10)
+  cod_producto   String   @db.Char(13)
+  stock_original Int
+  stock_nuevo    Int
+
+  usuario  Usuario  @relation(fields: [ced_usuario], references: [cedula])
+  producto Producto @relation(fields: [cod_producto], references: [codigo])
+}
+
+model Venta {
+  id_venta       Int      @id @default(autoincrement())
+  fecha          DateTime @default(now())
+  ced_vendedor   String   @db.Char(10)
+  ced_cliente    String?  @db.Char(10)
+  nombre_cliente String?  @db.VarChar(40)
+  metodo_pago    String   @db.VarChar(30)
+
+  vendedor  Usuario         @relation(fields: [ced_vendedor], references: [cedula])
+  productos VentaProducto[]
+}
+
+model VentaProducto {
+  id_venta        Int
+  cod_producto    String  @db.Char(13)
+  precio_unitario Decimal @db.Decimal(15, 2)
+  unidades        Int
+
+  venta    Venta    @relation(fields: [id_venta], references: [id_venta])
+  producto Producto @relation(fields: [cod_producto], references: [codigo])
+
+  @@id([id_venta, cod_producto])
 }
