@@ -37,7 +37,10 @@ export async function login(prevState, formData) {
         if (dbUser) {
             if (dbUser.estado !== 'ACTIVO') {
                 await supabase.auth.signOut()
-                return { error: 'Tu cuenta está inactiva o bloqueada. Comunícate con un supervisor.' }
+                if (dbUser.estado === 'INACTIVO') {
+                    return { error: 'Tu cuenta de cajero está pendiente de aprobación por un supervisor. Comunícate con tu supervisor para habilitar tu acceso.' }
+                }
+                return { error: 'Tu cuenta ha sido bloqueada. Comunícate con un supervisor.' }
             }
 
             if (dbUser.rol === 'SUPERVISOR') {
@@ -112,7 +115,7 @@ export async function register(prevState, formData) {
         return { error: authError?.message || 'Error al registrar el usuario en el sistema de autenticación.' }
     }
 
-    // 2. Crear perfil en la tabla Usuario de Prisma
+    // 2. Crear perfil en la tabla Usuario de Prisma con estado INACTIVO (requiere aprobación previa del supervisor)
     try {
         await prisma.usuario.upsert({
             where: { id: authData.user.id },
@@ -122,7 +125,7 @@ export async function register(prevState, formData) {
                 apellido,
                 cedula,
                 rol,
-                estado: 'ACTIVO',
+                estado: 'INACTIVO',
             },
             create: {
                 id: authData.user.id,
@@ -131,7 +134,7 @@ export async function register(prevState, formData) {
                 apellido,
                 cedula,
                 rol,
-                estado: 'ACTIVO',
+                estado: 'INACTIVO',
             },
         })
     } catch (dbErr) {
@@ -139,13 +142,11 @@ export async function register(prevState, formData) {
         return { error: 'Se creó el usuario en Auth pero hubo un error en la base de datos. Intenta iniciar sesión.' }
     }
 
-    // Si Supabase devuelve sesión activa directamente
-    if (authData.session) {
-        redirect('/pos')
-    }
+    // Cerrar cualquier sesión automática para evitar acceso directo sin aprobación
+    await supabase.auth.signOut()
 
     return {
-        success: '¡Usuario registrado exitosamente! Ya puedes iniciar sesión con tus credenciales.',
+        success: '¡Registro completado exitosamente! Tu cuenta de cajero ha sido creada y se encuentra pendiente de aprobación por parte de un supervisor antes de poder ingresar al punto de venta.',
     }
 }
 

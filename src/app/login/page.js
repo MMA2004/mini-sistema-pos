@@ -13,14 +13,14 @@ export default function LoginPage() {
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="flex justify-center">
                     <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-emerald-500/30">
-                        POS
+                        P
                     </div>
                 </div>
                 <h2 className="mt-4 text-center text-3xl font-extrabold text-slate-900 tracking-tight">
-                    Acceso al Sistema POS
+                    Acceso al Sistema
                 </h2>
                 <p className="mt-2 text-center text-sm text-slate-600">
-                    Ingresa con tu cuenta de <span className="font-semibold text-emerald-600">Cajero</span> o <span className="font-semibold text-purple-600">Supervisor</span>
+                    Ingresa con tu cuenta
                 </p>
             </div>
 

@@ -14,7 +14,7 @@ export default function RegistroPage() {
             <div className="sm:mx-auto sm:w-full sm:max-w-md">
                 <div className="flex justify-center">
                     <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center text-white font-extrabold text-2xl shadow-lg shadow-emerald-500/30">
-                        POS
+                        P
                     </div>
                 </div>
                 <h2 className="mt-4 text-center text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -36,24 +36,39 @@ export default function RegistroPage() {
                         </div>
                     )}
 
-                    {state?.success && (
-                        <div className="mb-6 rounded-lg bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800 flex items-start gap-3">
-                            <svg className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                            </svg>
+                    {state?.success ? (
+                        <div className="text-center py-4 space-y-4">
+                            <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 mx-auto flex items-center justify-center shadow-xs">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
                             <div>
-                                <p className="font-semibold">{state.success}</p>
+                                <h3 className="text-xl font-bold text-slate-900">¡Registro enviado con éxito!</h3>
+                                <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                                    Tu cuenta de cajero ha sido creada y se encuentra en estado{' '}
+                                    <strong className="text-amber-700 font-semibold">Pendiente de Aprobación</strong>.
+                                </p>
+                                <div className="mt-3 text-xs text-amber-900 bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 leading-relaxed text-left flex items-start gap-2.5">
+                                    <svg className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>
+                                        Un supervisor debe autorizar tu usuario en el módulo de <strong>Vendedores</strong> del sistema antes de que puedas iniciar sesión y acceder al punto de venta.
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="pt-2">
                                 <Link
                                     href="/login"
-                                    className="mt-2 inline-block font-bold text-emerald-700 underline text-sm"
+                                    className="w-full inline-flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition"
                                 >
                                     Ir a Iniciar Sesión →
                                 </Link>
                             </div>
                         </div>
-                    )}
-
-                    <form action={formAction} className="space-y-4">
+                    ) : (
+                        <form action={formAction} className="space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="nombre" className="block text-sm font-semibold text-slate-700">
@@ -192,6 +207,7 @@ export default function RegistroPage() {
                             </button>
                         </div>
                     </form>
+                    )}
 
                     <div className="mt-6 text-center border-t border-slate-100 pt-4">
                         <p className="text-sm text-slate-600">

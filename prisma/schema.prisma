@@ -62,6 +62,7 @@ model Categoria {
 model Producto {
   codigo              String   @id @db.VarChar(50) // Soporta EAN-13, EAN-8 o SKUs alfanuméricos
   nombre              String   @db.VarChar(120)
+  descripcion         String?  @db.VarChar(255)
   id_categoria        Int
   precio_unitario     Decimal  @db.Decimal(15, 2)
   unidades_totales    Int      @default(0)

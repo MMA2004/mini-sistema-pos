@@ -6,7 +6,7 @@ import Link from 'next/link'
 export default async function PosPage() {
     const user = await getCurrentUser()
 
-    if (!user) {
+    if (!user || user.estado !== 'ACTIVO') {
         redirect('/login')
     }
 
