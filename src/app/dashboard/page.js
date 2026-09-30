@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/app/auth/actions'
 import { prisma } from '@/lib/prisma'
+import { formatearMoneda } from '@/utils/posCalculations'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
@@ -12,9 +13,23 @@ export default async function DashboardPage() {
     let totalProductos = 0
     let productosBajoStockList = []
     let ultimosMovimientos = []
+    let totalVentasHoy = 0
+    let cantidadVentasHoy = 0
+    let turnosActivosCount = 0
 
     try {
-        const [usuariosCount, usuariosPendientesCount, categoriasCount, productos, movimientos] = await Promise.all([
+        const inicioHoy = new Date()
+        inicioHoy.setHours(0, 0, 0, 0)
+
+        const [
+            usuariosCount,
+            usuariosPendientesCount,
+            categoriasCount,
+            productos,
+            movimientos,
+            ventasHoy,
+            turnosAbiertos,
+        ] = await Promise.all([
             prisma.usuario.count(),
             prisma.usuario.count({ where: { estado: 'INACTIVO' } }),
             prisma.categoria.count({ where: { activo: true } }),
@@ -31,6 +46,16 @@ export default async function DashboardPage() {
                     usuario: { select: { nombre: true, apellido: true } },
                 },
             }),
+            prisma.venta.findMany({
+                where: {
+                    fecha: { gte: inicioHoy },
+                    estado: 'COMPLETADA',
+                },
+                select: { total: true },
+            }),
+            prisma.turnoCaja.count({
+                where: { estado: 'ABIERTO' },
+            }),
         ])
 
         totalUsuarios = usuariosCount
@@ -39,6 +64,9 @@ export default async function DashboardPage() {
         totalProductos = productos.length
         productosBajoStockList = productos.filter((p) => p.unidades_totales <= p.stock_minimo)
         ultimosMovimientos = movimientos
+        cantidadVentasHoy = ventasHoy.length
+        totalVentasHoy = ventasHoy.reduce((acc, v) => acc + Number(v.total), 0)
+        turnosActivosCount = turnosAbiertos
     } catch (e) {
         console.error('Error al cargar datos del dashboard:', e)
     }
@@ -56,7 +84,7 @@ export default async function DashboardPage() {
                             Supervisor: {user?.nombre || 'Administrador'}
                         </h1>
                         <p className="text-slate-600 text-sm mt-1">
-                            Supervisión de inventario, catálogo, categorías y equipo de vendedores.
+                            Supervisión de inventario, ventas del día, arqueos y canales de pago.
                         </p>
                     </div>
 
@@ -103,23 +131,49 @@ export default async function DashboardPage() {
                 </div>
             )}
 
-            {/* Tarjetas de Métricas Operativas */}
+            {/* Tarjetas de Métricas Operativas y Financieras */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:border-indigo-300 transition">
+                {/* 1. Ventas de Hoy */}
+                <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:border-emerald-300 transition">
                     <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Productos Activos</p>
-                        <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ventas de Hoy</p>
+                        <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </span>
                     </div>
-                    <p className="text-3xl font-extrabold text-slate-900 mt-2">{totalProductos}</p>
-                    <Link href="/dashboard/productos" className="text-xs font-bold text-indigo-600 hover:underline inline-flex items-center gap-1 mt-2">
-                        Ver catálogo →
+                    <p className="text-2xl font-extrabold text-emerald-600 font-mono mt-2">
+                        {formatearMoneda(totalVentasHoy)}
+                    </p>
+                    <Link href="/dashboard/ventas" className="text-xs font-bold text-emerald-700 hover:underline inline-flex items-center gap-1 mt-2">
+                        {cantidadVentasHoy} transacciones • Ver reporte →
                     </Link>
                 </div>
 
+                {/* 2. Cajas / Turnos Activos */}
+                <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:border-indigo-300 transition">
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Cajas Activas</p>
+                        <span className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </span>
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <p className="text-3xl font-extrabold text-slate-900">{turnosActivosCount}</p>
+                        <span className="inline-flex items-center gap-1 text-2xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Turno(s) en curso
+                        </span>
+                    </div>
+                    <Link href="/pos" className="text-xs font-bold text-indigo-600 hover:underline inline-flex items-center gap-1 mt-2">
+                        Ir a terminal de caja →
+                    </Link>
+                </div>
+
+                {/* 3. Alerta Stock Crítico */}
                 <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:border-amber-300 transition">
                     <div className="flex items-center justify-between">
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Alerta Stock Crítico</p>
@@ -137,41 +191,19 @@ export default async function DashboardPage() {
                     </Link>
                 </div>
 
-                <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:border-emerald-300 transition">
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Categorías</p>
-                        <span className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                            </svg>
-                        </span>
-                    </div>
-                    <p className="text-3xl font-extrabold text-slate-900 mt-2">{totalCategorias}</p>
-                    <Link href="/dashboard/categorias" className="text-xs font-bold text-emerald-600 hover:underline inline-flex items-center gap-1 mt-2">
-                        Ajustar categorías →
-                    </Link>
-                </div>
-
+                {/* 4. Catálogo Activo */}
                 <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:border-purple-300 transition">
                     <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Vendedores / Equipo</p>
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Productos Activos</p>
                         <span className="p-2 bg-purple-50 text-purple-600 rounded-lg">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                             </svg>
                         </span>
                     </div>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <p className="text-3xl font-extrabold text-slate-900">{totalUsuarios}</p>
-                        {usuariosPendientes > 0 && (
-                            <span className="inline-flex items-center gap-1 text-2xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                                {usuariosPendientes} pendiente{usuariosPendientes > 1 ? 's' : ''}
-                            </span>
-                        )}
-                    </div>
-                    <Link href="/dashboard/vendedores" className="text-xs font-bold text-purple-600 hover:underline inline-flex items-center gap-1 mt-2">
-                        Gestionar vendedores →
+                    <p className="text-3xl font-extrabold text-slate-900 mt-2">{totalProductos}</p>
+                    <Link href="/dashboard/productos" className="text-xs font-bold text-purple-600 hover:underline inline-flex items-center gap-1 mt-2">
+                        Ver catálogo ({totalCategorias} categorías) →
                     </Link>
                 </div>
             </div>

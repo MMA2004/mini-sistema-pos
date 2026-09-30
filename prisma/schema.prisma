@@ -35,6 +35,16 @@ enum MetodoPago {
   OTRO
 }
 
+enum EstadoTurno {
+  ABIERTO
+  CERRADO
+}
+
+enum EstadoVenta {
+  COMPLETADA
+  ANULADA
+}
+
 model Usuario {
   id        String        @id @db.Uuid // Vinculado directamente al id (UUID) de auth.users de Supabase
   correo    String        @unique @db.VarChar(100)
@@ -47,6 +57,7 @@ model Usuario {
   updatedAt DateTime      @updatedAt
 
   ventas       Venta[]
+  turnos       TurnoCaja[]
   cambiosStock HistoricoCambiosStock[]
 }
 
@@ -65,6 +76,7 @@ model Producto {
   descripcion         String?  @db.VarChar(255)
   id_categoria        Int
   precio_unitario     Decimal  @db.Decimal(15, 2)
+  porcentaje_iva      Decimal  @default(19.00) @db.Decimal(5, 2)
   unidades_totales    Int      @default(0)
   unidades_reservadas Int      @default(0)
   stock_minimo        Int      @default(5)
@@ -97,36 +109,107 @@ model HistoricoCambiosStock {
   @@index([fecha])
 }
 
-model Venta {
-  id_venta       Int        @id @default(autoincrement())
-  fecha          DateTime   @default(now())
-  id_vendedor    String     @db.Uuid
-  ced_cliente    String?    @db.VarChar(20)
-  nombre_cliente String?    @db.VarChar(80)
-  metodo_pago    MetodoPago @default(EFECTIVO)
+model TurnoCaja {
+  id_turno               Int         @id @default(autoincrement())
+  id_usuario             String      @db.Uuid
+  fecha_apertura         DateTime    @default(now())
+  fecha_cierre           DateTime?
+  monto_apertura         Decimal     @db.Decimal(15, 2) // Fondo base inicial en efectivo
+  monto_cierre_esperado  Decimal?    @db.Decimal(15, 2) // Fondo base + ventas en efectivo
+  monto_cierre_real      Decimal?    @db.Decimal(15, 2) // Dinero físico contado en arqueo
+  diferencia             Decimal?    @db.Decimal(15, 2) // Real - Esperado (sobrante (+) / faltante (-))
+  total_ventas           Decimal     @default(0) @db.Decimal(15, 2)
+  total_efectivo         Decimal     @default(0) @db.Decimal(15, 2)
+  total_otros_metodos    Decimal     @default(0) @db.Decimal(15, 2)
+  estado                 EstadoTurno @default(ABIERTO)
+  observaciones_apertura String?     @db.VarChar(255)
+  observaciones_cierre   String?     @db.VarChar(255)
 
-  // Totales almacenados para cierres de caja y reportes rápidos
-  subtotal       Decimal    @default(0) @db.Decimal(15, 2)
-  descuento      Decimal    @default(0) @db.Decimal(15, 2)
-  impuesto       Decimal    @default(0) @db.Decimal(15, 2)
-  total          Decimal    @db.Decimal(15, 2)
+  cajero Usuario @relation(fields: [id_usuario], references: [id])
+  ventas Venta[]
+
+  @@index([id_usuario])
+  @@index([fecha_apertura])
+  @@index([estado])
+}
+
+model MetodoPagoConfig {
+  id_metodo           Int         @id @default(autoincrement())
+  codigo              String      @unique @db.VarChar(30)
+  nombre              String      @db.VarChar(60)
+  activo              Boolean     @default(true)
+  requiere_referencia Boolean     @default(false)
+  permite_cambio      Boolean     @default(false)
+  orden               Int         @default(0)
+
+  pagos VentaPago[]
+}
+
+model Venta {
+  id_venta             Int         @id @default(autoincrement())
+  numero_ticket        String?     @unique @db.VarChar(30)
+  id_turno             Int?
+  fecha                DateTime    @default(now())
+  id_vendedor          String      @db.Uuid
+  ced_cliente          String?     @db.VarChar(20)
+  nombre_cliente       String?     @db.VarChar(80)
+  metodo_pago          MetodoPago  @default(EFECTIVO) // Mantenido para retrocompatibilidad
+  estado               EstadoVenta @default(COMPLETADA)
+
+  // Desglose de totales financieros
+  subtotal             Decimal     @default(0) @db.Decimal(15, 2)
+  descuento_porcentaje Decimal     @default(0) @db.Decimal(5, 2)
+  descuento            Decimal     @default(0) @db.Decimal(15, 2)
+  impuesto             Decimal     @default(0) @db.Decimal(15, 2)
+  total                Decimal     @db.Decimal(15, 2)
+
+  // Auditoría de anulación
+  motivo_anulacion     String?     @db.VarChar(255)
+  fecha_anulacion      DateTime?
+  id_usuario_anulacion String?     @db.Uuid
 
   vendedor  Usuario         @relation(fields: [id_vendedor], references: [id])
+  turno     TurnoCaja?      @relation(fields: [id_turno], references: [id_turno])
   productos VentaProducto[]
+  pagos     VentaPago[]
 
   @@index([fecha])
   @@index([id_vendedor])
+  @@index([id_turno])
+  @@index([numero_ticket])
+  @@index([estado])
 }
 
 model VentaProducto {
-  id_venta        Int
-  cod_producto    String  @db.VarChar(50)
-  precio_unitario Decimal @db.Decimal(15, 2)
-  unidades        Int
-  subtotal        Decimal @db.Decimal(15, 2)
+  id_venta             Int
+  cod_producto         String  @db.VarChar(50)
+  precio_unitario      Decimal @db.Decimal(15, 2)
+  unidades             Int
+  descuento_porcentaje Decimal @default(0) @db.Decimal(5, 2)
+  descuento_monto      Decimal @default(0) @db.Decimal(15, 2)
+  impuesto_porcentaje  Decimal @default(0) @db.Decimal(5, 2)
+  impuesto_monto       Decimal @default(0) @db.Decimal(15, 2)
+  subtotal             Decimal @db.Decimal(15, 2) // Base gravable neta
+  total                Decimal @default(0) @db.Decimal(15, 2) // subtotal + impuesto - descuento
 
   venta    Venta    @relation(fields: [id_venta], references: [id_venta], onDelete: Cascade)
   producto Producto @relation(fields: [cod_producto], references: [codigo])
 
   @@id([id_venta, cod_producto])
+}
+
+model VentaPago {
+  id_pago         Int              @id @default(autoincrement())
+  id_venta        Int
+  id_metodo       Int
+  monto           Decimal          @db.Decimal(15, 2)
+  monto_recibido  Decimal?         @db.Decimal(15, 2)
+  cambio_devuelto Decimal?         @db.Decimal(15, 2)
+  referencia      String?          @db.VarChar(100)
+
+  venta      Venta            @relation(fields: [id_venta], references: [id_venta], onDelete: Cascade)
+  metodoPago MetodoPagoConfig @relation(fields: [id_metodo], references: [id_metodo])
+
+  @@index([id_venta])
+  @@index([id_metodo])
 }

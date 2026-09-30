@@ -27,6 +27,7 @@ export default async function StockPage() {
     const serializedProductos = productos.map((p) => ({
         ...p,
         precio_unitario: Number(p.precio_unitario),
+        porcentaje_iva: Number(p.porcentaje_iva ?? 19),
     }))
 
     return <StockClient initialProductos={serializedProductos} initialMovimientos={movimientos} />

@@ -20,6 +20,9 @@ export async function createProducto(formData) {
     const descripcion = formData.get('descripcion')?.toString().trim() || null
     const stock_inicial = parseInt(formData.get('stock_inicial') || '0', 10)
     const stock_minimo = parseInt(formData.get('stock_minimo') || '5', 10)
+    const porcentaje_iva = formData.get('porcentaje_iva') !== null && formData.get('porcentaje_iva') !== ''
+        ? parseFloat(formData.get('porcentaje_iva'))
+        : 19.0
 
     if (!codigo || !nombre || isNaN(id_categoria) || isNaN(precio_unitario)) {
         return { error: 'Por favor completa todos los campos obligatorios.' }
@@ -51,6 +54,7 @@ export async function createProducto(formData) {
                     descripcion,
                     id_categoria,
                     precio_unitario,
+                    porcentaje_iva: isNaN(porcentaje_iva) ? 19.0 : porcentaje_iva,
                     unidades_totales: stock_inicial,
                     stock_minimo,
                     activo: true,
@@ -111,16 +115,26 @@ export async function updateProducto(formData) {
         return { error: 'El stock mínimo no puede ser negativo.' }
     }
 
+    const updateData = {
+        nombre,
+        id_categoria,
+        precio_unitario,
+        descripcion,
+        stock_minimo,
+    }
+
+    const rawIva = formData.get('porcentaje_iva')
+    if (rawIva !== null && rawIva !== '') {
+        const ivaNum = parseFloat(rawIva)
+        if (!isNaN(ivaNum)) {
+            updateData.porcentaje_iva = ivaNum
+        }
+    }
+
     try {
         await prisma.producto.update({
             where: { codigo },
-            data: {
-                nombre,
-                id_categoria,
-                precio_unitario,
-                descripcion,
-                stock_minimo,
-            },
+            data: updateData,
         })
 
         revalidatePath('/dashboard/productos')
