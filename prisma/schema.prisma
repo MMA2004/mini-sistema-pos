@@ -146,7 +146,7 @@ model MetodoPagoConfig {
 }
 
 model Venta {
-  id_venta             Int         @id @default(autoincrement())
+  id_venta             String      @id @default(uuid()) @db.Uuid
   numero_ticket        String?     @unique @db.VarChar(30)
   id_turno             Int?
   fecha                DateTime    @default(now())
@@ -181,7 +181,7 @@ model Venta {
 }
 
 model VentaProducto {
-  id_venta             Int
+  id_venta             String  @db.Uuid
   cod_producto         String  @db.VarChar(50)
   precio_unitario      Decimal @db.Decimal(15, 2)
   unidades             Int
@@ -200,7 +200,7 @@ model VentaProducto {
 
 model VentaPago {
   id_pago         Int              @id @default(autoincrement())
-  id_venta        Int
+  id_venta        String           @db.Uuid
   id_metodo       Int
   monto           Decimal          @db.Decimal(15, 2)
   monto_recibido  Decimal?         @db.Decimal(15, 2)

@@ -677,7 +677,7 @@ export async function anularVenta({ idVenta, motivo }) {
         }
 
         const venta = await prisma.venta.findUnique({
-            where: { id_venta: Number(idVenta) },
+            where: { id_venta: String(idVenta) },
             include: {
                 productos: true,
             },
